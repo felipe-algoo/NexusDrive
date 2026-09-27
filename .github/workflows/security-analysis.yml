@@ -1,0 +1,54 @@
+name: "Static Analysis"
+
+on:
+  push:
+    branches: [ "main", "production" ]
+  pull_request:
+    branches: [ "main", "production" ]
+  schedule:
+    - cron: '0 2 * * 0' # Executes weekly at 02:00 UTC
+
+jobs:
+  bandit-sast:
+    name: Bandit Python Security Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Provision Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Security Linter
+        run: pip install bandit
+
+      - name: Execute AST Security Scan
+        run: bandit -r . -ll -ii -x ./tests
+
+  codeql-analysis:
+    name: CodeQL Semantic Code Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL Environment
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-extended,security-and-quality
+
+      - name: Execute CodeQL Build
+        uses: github/codeql-action/autobuild@v3
+      - name: Perform Vulnerability Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"
